@@ -1,5 +1,3 @@
-import numpy as np
-
 from parameters import *
 from graph import create_tree_polyphonic, get_ratios
 import networkx as nx

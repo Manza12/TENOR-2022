@@ -267,6 +267,10 @@ def create_tree_polyphonic(timestamps, notes, frame_duration=2., with_final_node
         # Compute aCD's
         acds, acds_error, acds_multiples = compute_acds_multiples(np.expand_dims(np.array(stretch), 0),
                                                                   notes=notes, plot=False)
+
+        if len(acds) == 0:
+            raise NotImplementedError('Graph break not handled yet.')
+
         acds_durations = np.diff(acds_multiples, axis=-1)
 
         # Add nodes

@@ -64,3 +64,26 @@ def compute_acds(timestamps, plot=False):
         plt.show()
 
     return acds_threshold, acds_threshold_errors, acds_threshold_durations
+
+
+def compute_acds_transposed(timestamps):
+    integers = np.round(timestamps / candidates_acd_transposed).astype(np.int8)
+    approximations = candidates_acd_transposed * integers
+    errors_matrix = np.abs(timestamps - approximations)
+    errors = np.max(errors_matrix, 1)
+
+    peaks_locations, _ = find_peaks(-errors)
+
+    acds = candidates_acd[0, peaks_locations]
+    acds_errors = errors[peaks_locations]
+    acds_durations = integers[peaks_locations, :]
+
+    under_threshold = acds_errors < THRESHOLD
+    indexes_threshold = np.where(under_threshold)
+
+    acds_threshold = acds[indexes_threshold]
+    acds_threshold_errors = acds_errors[indexes_threshold]
+    acds_threshold_durations = acds_durations[indexes_threshold, :]
+    acds_threshold_durations = np.diff(acds_threshold_durations[0, :, :], axis=1)
+
+    return acds_threshold, acds_threshold_errors, acds_threshold_durations

@@ -1,6 +1,8 @@
+import numpy as np
+
 from parameters import *
 import networkx as nx
-from agcd import compute_acds
+from agcd import compute_acds, compute_acds_transposed
 
 
 class Node:
@@ -21,6 +23,12 @@ class Node:
         result += 'Index: ' + str(self.node_index)
 
         return result
+
+
+class NodePos(Node):
+    def __init__(self, frame: int, frame_index: int, duration: float, multiple: np.ndarray, error: float, pos: tuple):
+        super().__init__(frame, frame_index, duration, multiple, error)
+        self.pos = pos
 
 
 class List(list):
@@ -122,3 +130,54 @@ def create_graph(timestamps):
         graph_acds.add_edge(p_node.node_index, final_node.node_index, weight=1)
 
     return graph_acds, all_nodes
+
+
+def create_tree(timestamps, with_final_node=True):
+    tree_acds = nx.Graph()
+    all_nodes = List()
+    previous_nodes = List()
+
+    frame = 0
+    node_start = NodePos(frame, 0, (timestamps[1] - timestamps[0])[0], np.ones(2, dtype=np.int8), 0., pos=(0, -frame))
+    all_nodes.append(node_start)
+    previous_nodes.append(node_start)
+    tree_acds.add_node(node_start.node_index, pos=node_start.pos)
+
+    for i in range(len(timestamps) - 2):
+        frame = i + 1
+
+        stretch = timestamps[i:i + 3, 0]
+        stretch = stretch - stretch[1]
+        acds, acds_error, acds_durations = compute_acds_transposed(np.expand_dims(stretch, 0))
+
+        current_nodes = List()
+        for p_node in previous_nodes:
+            for k, acd in enumerate(acds):
+                n = len(acds)
+
+                # Check go to node is possible
+                node = NodePos(frame, k, acd, acds_durations[k, :], acds_error[k],
+                               pos=(p_node.pos[0] + k - (n - 1) / 2, -frame))
+                multiples_ok = assert_multiples(p_node, node)
+                if multiples_ok:
+                    weight = compute_weight(p_node, node)
+                    if weight < np.float('inf'):
+                        all_nodes.append(node)
+                        current_nodes.append(node)
+
+                        tree_acds.add_node(node.node_index, pos=node.pos)
+                        tree_acds.add_edge(p_node.node_index, node.node_index, weight=weight)
+
+        previous_nodes = current_nodes
+
+    # Final Node
+    if with_final_node:
+        frame += 1
+        final_node = NodePos(frame, 0, (timestamps[-1] - timestamps[-2])[0], np.ones(2, dtype=np.int8), 0.,
+                             pos=(0, -frame))
+        all_nodes.append(final_node)
+        tree_acds.add_node(final_node.node_index, pos=final_node.pos)
+        for p_node in previous_nodes:
+            tree_acds.add_edge(p_node.node_index, final_node.node_index, weight=0)
+
+    return tree_acds, all_nodes

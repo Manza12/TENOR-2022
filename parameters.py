@@ -3,7 +3,7 @@ import numpy as np
 # aGCD
 THRESHOLD = 0.05  # in seconds
 MIN_CANDIDATE = 0.001  # in seconds
-MAX_CANDIDATE = 1.5  # in seconds
+MAX_CANDIDATE = 1.  # in seconds
 RESOLUTION = 0.001  # in seconds
 
 # aCD
@@ -19,5 +19,5 @@ candidates_acd_transposed = np.expand_dims(candidates_acd[0], 1)
 # Graph parameters
 MAXIMUM_TEMPO_VARIATION = 20.  # in percent
 MAXIMUM_ERROR = THRESHOLD  # in seconds
-WEIGHT_ERROR = 1/2
-WEIGHT_TEMPO_VARIATION = 1/2
+WEIGHT_ERROR = 1.
+WEIGHT_TEMPO_VARIATION = 1.

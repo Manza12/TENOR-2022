@@ -1,7 +1,7 @@
-import numpy as np
-
 from parameters import *
 from scipy.signal import find_peaks
+import matplotlib as mpl
+mpl.rc('font', family='CMU Serif')
 
 
 def plot_timestamps(timestamps, notes, threshold):
@@ -42,17 +42,37 @@ def plot_timestamps(timestamps, notes, threshold):
     return fig
 
 
-def plot_acds(acds, acds_errors, errors, acds_threshold, acds_threshold_errors):
+def plot_acds(acds, acds_errors, errors, acds_threshold, acds_threshold_errors, latex=True, save=False):
     import matplotlib.pyplot as plt
-    plt.plot(candidates_acd[0, :], errors)
-    plt.scatter(acds, acds_errors, color='g')
-    plt.axhline(y=THRESHOLD, color='k')
-    plt.scatter(acds_threshold, acds_threshold_errors, color='r')
 
-    plt.title('Error with respect to candidate')
+    fig = plt.figure(figsize=(5., 2.5))
+
+    line_error = plt.plot(candidates_acd[0, :], errors)
+    if not acds.all():
+        plt.scatter(acds, acds_errors, color='g')
+    line_threshold = plt.axhline(y=THRESHOLD, color='k')
+    points_acds = plt.scatter(acds_threshold, acds_threshold_errors, color='r')
+
+    if latex:
+        plt.rcParams.update({
+            "text.usetex": True,
+            # "font.sans-serif": ["CMU Serif"]
+            })
+    # plt.title(r'$\epsilon_{T}(a)$', usetex=True)
     plt.xlabel('Time (s)')
-    plt.ylabel('Maximum error (s)')
+    plt.ylabel('Error (s)')
+    # r'$\epsilon_{T}(a)$'
+    if latex:
+        plt.legend([points_acds, line_threshold, line_error[0]],
+                   ['approximate common divisors', r'threshold ($\tau$ = 0.05 s)', r'$\epsilon_{T}$'])
+
+    plt.tight_layout()
+
+    if save:
+        fig.savefig('Figure_1.eps', bbox_inches='tight', pad_inches=0, transparent=True)
     plt.show()
+
+    return fig
 
 
 def compute_agcd(timestamps, plot=False):
@@ -75,7 +95,9 @@ def compute_agcd(timestamps, plot=False):
     return agcd, error
 
 
-def compute_acds(timestamps, plot=False):
+def compute_acds(timestamps, plot=False, center=True, latex=True, save=False):
+    if center:
+        timestamps = timestamps - timestamps[0]
     integers = np.round(timestamps / candidates_acd).astype(np.int8)
     approximations = candidates_acd * integers
     errors_matrix = np.abs(timestamps - approximations)
@@ -96,7 +118,7 @@ def compute_acds(timestamps, plot=False):
     acds_threshold_durations = np.diff(acds_threshold_durations[:, 0, :], axis=0)
 
     if plot:
-        plot_acds(acds, acds_errors, errors, acds_threshold, acds_threshold_errors)
+        plot_acds(acds, acds_errors, errors, acds_threshold, acds_threshold_errors, latex=latex, save=save)
 
     return acds_threshold, acds_threshold_errors, acds_threshold_durations
 

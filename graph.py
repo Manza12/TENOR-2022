@@ -1,3 +1,5 @@
+from typing import Union
+
 from parameters import *
 import networkx as nx
 from agcd import compute_acds, compute_acds_transposed, compute_acds_multiples
@@ -31,7 +33,7 @@ class NodePos(Node):
 
 
 class NodePoly(NodePos):
-    def __init__(self, frame: int, frame_index: int, duration: float, multiple: np.ndarray, durations:np.ndarray,
+    def __init__(self, frame: int, frame_index: int, duration: float, multiple: np.ndarray, durations: np.ndarray,
                  error: float, pos: tuple):
         super().__init__(frame, frame_index, duration, multiple, error, pos)
         self.durations = durations
@@ -40,6 +42,15 @@ class NodePoly(NodePos):
         self.duration /= m
         self.durations *= m
         self.multiple *= m
+
+
+class NodeOpti(Node):
+    def __init__(self, frame: int, frame_index: int, duration: float, multiple: np.ndarray, durations: np.ndarray,
+                 error: float, node_width: float, pos: tuple = (0, 0)):
+        super().__init__(frame, frame_index, duration, multiple, error)
+        self.durations = durations
+        self.node_width = node_width
+        self.pos = pos
 
 
 class List(list):
@@ -64,6 +75,23 @@ def linear_clipped_weight(value, maximum_value):
     else:
         weight_tempo_variation = value / maximum_value
         return weight_tempo_variation
+
+
+def compute_weight_optimal(p_node: Node, node: Node):
+    if p_node.duration == 0.:
+        error = node.error
+        error_weight = linear_clipped_weight(error, MAXIMUM_ERROR)
+        return error_weight
+    else:
+        tempo_variation = log_distance(node.duration, p_node.duration)
+        # tempo_variation_weight = linear_clipped_weight(tempo_variation,
+        #                                                log_distance(1., 1. + MAXIMUM_TEMPO_VARIATION / 100))
+        error = node.error
+        error_weight = linear_clipped_weight(error, MAXIMUM_ERROR)
+
+        total_weight = WEIGHT_ERROR * error_weight + WEIGHT_TEMPO_VARIATION * tempo_variation
+
+        return total_weight
 
 
 def compute_weight(p_node: Node, node: Node, ratios=(0, 0)):
@@ -129,6 +157,16 @@ def assert_durations(p_node: NodePoly, node: NodePoly, ratios, minimum_acd=min_a
         return check_conditions_on_durations(a_0, a_1, minimum_acd)
 
 
+def check_coherent_durations(p_node: Union[NodePoly, NodeOpti], node: Union[NodePoly, NodeOpti]):
+    durations_0 = p_node.durations
+    durations_1 = node.durations
+
+    if len(durations_0) == 0:
+        return True
+    else:
+        return np.all(durations_0[1:] == durations_1[:len(durations_0)-1])
+
+
 def create_graph(timestamps):
     graph_acds = nx.Graph()
     previous_nodes = List()
@@ -186,7 +224,7 @@ def create_tree(timestamps, with_final_node=True):
     previous_nodes = List()
 
     frame = 0
-    node_start = NodePos(frame, 0, (timestamps[1] - timestamps[0])[0], np.ones(2, dtype=np.int8), 0., pos=(0, -frame))
+    node_start = NodePos(frame, 0, (timestamps[1] - timestamps[0])[0], np.ones(2, dtype=np.int8), 0., pos=(0., -frame))
     all_nodes.append(node_start)
     previous_nodes.append(node_start)
     tree_acds.add_node(node_start.node_index, pos=node_start.pos)
@@ -231,7 +269,8 @@ def create_tree(timestamps, with_final_node=True):
     return tree_acds, all_nodes
 
 
-def create_tree_polyphonic(timestamps, notes, frame_duration=2., with_final_node=True):
+def create_tree_polyphonic(timestamps, notes=None, frame_duration=2., with_final_node=True,
+                           graph_width=1., graph_height=1.):
     # Initialisation
     tree_acds = nx.Graph()
     all_nodes = List()
@@ -239,6 +278,7 @@ def create_tree_polyphonic(timestamps, notes, frame_duration=2., with_final_node
 
     finish = False
     starting_index = 0
+    n = np.zeros(0, dtype=np.int)
 
     # Create first node
     node_start = NodePoly(0, 0, 0., np.zeros(0, dtype=np.int8), np.zeros(0, dtype=np.int8), 0., (0, 0))
@@ -273,15 +313,19 @@ def create_tree_polyphonic(timestamps, notes, frame_duration=2., with_final_node
 
         acds_durations = np.diff(acds_multiples, axis=-1)
 
+        n = np.concatenate((n, np.array([len(acds)])))
+
         # Add nodes
         current_nodes = List()
         for p_node in previous_nodes:
             for k, acd in enumerate(acds):
-                n = len(acds)
+                # n = len(acds)
 
                 # Check go to node is possible
+                pos_x = p_node.pos[0] + graph_width * (k - (n[-1] - 1) / 2) / np.prod(n)
+                pos_y = - (starting_index + 1) * graph_height
                 node = NodePoly(starting_index + 1, k, acd, acds_multiples[k, :], acds_durations[k, :], acds_error[k],
-                                (p_node.pos[0] + k - (n - 1) / 2, - (starting_index + 1)))
+                                (pos_x, pos_y))
 
                 if p_node.durations.shape[0] == 0:
                     durations_ok = True
@@ -320,6 +364,244 @@ def create_tree_polyphonic(timestamps, notes, frame_duration=2., with_final_node
     if with_final_node:
         final_node = NodePoly(starting_index + 1, 0, 0., np.ones(0, dtype=np.int8), np.ones(0, dtype=np.int8), 0.,
                               (0, -(starting_index + 1)))
+        all_nodes.append(final_node)
+        tree_acds.add_node(final_node.node_index, pos=final_node.pos)
+        for p_node in previous_nodes:
+            tree_acds.add_edge(p_node.node_index, final_node.node_index, weight=0)
+
+    return tree_acds, all_nodes
+
+
+def create_tree_polyphonic_full(timestamps, notes=None, frame_duration=2., with_final_node=True,
+                                graph_width=1., graph_height=1.):
+    # Initialisation
+    tree_acds = nx.Graph()
+    all_nodes = List()
+    previous_nodes = List()
+
+    finish = False
+    starting_index = 0
+    n = np.zeros(0, dtype=np.int)
+
+    # Create first node
+    node_start = NodePoly(0, 0, 0., np.zeros(0, dtype=np.int8), np.zeros(0, dtype=np.int8), 0., (0, 0))
+    all_nodes.append(node_start)
+    previous_nodes.append(node_start)
+    tree_acds.add_node(node_start.node_index, pos=node_start.pos)
+
+    # Loop
+    while not finish:
+        # Select stretch
+        index = starting_index
+        t_0 = timestamps[index]
+        t_1 = t_0 + frame_duration
+        stretch = [timestamps[index]]
+        while stretch[-1] < t_1:
+            if index + 1 < len(timestamps):
+                if timestamps[index + 1] < t_1:
+                    stretch.append(timestamps[index + 1])
+                    index += 1
+                else:
+                    break
+            else:
+                finish = True
+                break
+
+        # Compute aCD's
+        acds, acds_error, acds_multiples = compute_acds_multiples(np.expand_dims(np.array(stretch), 0),
+                                                                  notes=notes, plot=False)
+
+        if len(acds) == 0:
+            raise NotImplementedError('Graph break not handled yet.')
+
+        acds_durations = np.diff(acds_multiples, axis=-1)
+
+        n = np.concatenate((n, np.array([len(acds)])))
+
+        # Add nodes
+        current_nodes = List()
+        for p_node in previous_nodes:
+            for k, acd in enumerate(acds):
+                # n = len(acds)
+
+                # Check go to node is possible
+                pos_x = p_node.pos[0] + graph_width * (k - (n[-1] - 1) / 2) / np.prod(n)
+                pos_y = - (starting_index + 1) * graph_height
+                node = NodePoly(starting_index + 1, k, acd, acds_multiples[k, :], acds_durations[k, :], acds_error[k],
+                                (pos_x, pos_y))
+
+                all_nodes.append(node)
+                current_nodes.append(node)
+
+                tree_acds.add_node(node.node_index, pos=node.pos)
+                tree_acds.add_edge(p_node.node_index, node.node_index)
+
+        previous_nodes = current_nodes
+        starting_index += 1
+
+    # Final Node
+    if with_final_node:
+        final_node = NodePoly(starting_index + 1, 0, 0., np.ones(0, dtype=np.int8), np.ones(0, dtype=np.int8), 0.,
+                              (0, -(starting_index + 1)))
+        all_nodes.append(final_node)
+        tree_acds.add_node(final_node.node_index, pos=final_node.pos)
+        for p_node in previous_nodes:
+            tree_acds.add_edge(p_node.node_index, final_node.node_index, weight=0)
+
+    return tree_acds, all_nodes
+
+
+def create_tree_polyphonic_pruned(timestamps, notes=None, frame_duration=2., with_final_node=True,
+                                  graph_width=1., graph_height=1.):
+    # Initialisation
+    tree_acds = nx.Graph()
+    all_nodes = List()
+    previous_nodes = List()
+
+    finish = False
+    starting_index = 0
+    n = np.zeros(0, dtype=np.int)
+
+    # Create first node
+    node_start = NodePoly(0, -1, 0., np.zeros(0, dtype=np.int8), np.zeros(0, dtype=np.int8), 0., (0, 0))
+    all_nodes.append(node_start)
+    previous_nodes.append(node_start)
+    tree_acds.add_node(node_start.node_index, pos=node_start.pos)
+
+    # Loop
+    while not finish:
+        # Select stretch
+        index = starting_index
+        t_0 = timestamps[index]
+        t_1 = t_0 + frame_duration
+        stretch = [timestamps[index]]
+        while stretch[-1] < t_1:
+            if index + 1 < len(timestamps):
+                if timestamps[index + 1] < t_1:
+                    stretch.append(timestamps[index + 1])
+                    index += 1
+                else:
+                    break
+            else:
+                finish = True
+                break
+
+        # Compute aCD's
+        acds, acds_error, acds_multiples = compute_acds_multiples(np.expand_dims(np.array(stretch), 0),
+                                                                  notes=notes, plot=False)
+
+        if len(acds) == 0:
+            raise NotImplementedError('Graph break not handled yet.')
+
+        acds_durations = np.diff(acds_multiples, axis=-1)
+
+        n = np.concatenate((n, np.array([len(acds)])))
+
+        # Add nodes
+        current_nodes = List()
+        for p_node in previous_nodes:
+            for k, acd in enumerate(acds):
+                # n = len(acds)
+
+                # Check go to node is possible
+                pos_x = p_node.pos[0] + graph_width * (k - (n[-1] - 1) / 2) / np.prod(n)
+                pos_y = - (starting_index + 1) * graph_height
+                node = NodePoly(starting_index + 1, k, acd, acds_multiples[k, :], acds_durations[k, :], acds_error[k],
+                                (pos_x, pos_y))
+
+                all_nodes.append(node)
+                current_nodes.append(node)
+
+                tree_acds.add_node(node.node_index, pos=node.pos)
+
+                coherent_durations = check_coherent_durations(p_node, node)
+                if coherent_durations:
+                    tree_acds.add_edge(p_node.node_index, node.node_index)
+
+        previous_nodes = current_nodes
+        starting_index += 1
+
+    # Final Node
+    if with_final_node:
+        final_node = NodePoly(starting_index + 1, 0, 0., np.ones(0, dtype=np.int8), np.ones(0, dtype=np.int8), 0.,
+                              (0, -(starting_index + 1)))
+        all_nodes.append(final_node)
+        tree_acds.add_node(final_node.node_index, pos=final_node.pos)
+        for p_node in previous_nodes:
+            tree_acds.add_edge(p_node.node_index, final_node.node_index, weight=0)
+
+    return tree_acds, all_nodes
+
+
+def create_optimal_tree(timestamps, notes=None, with_final_node=True, graph_width=1., graph_height=1.):
+    # Initialisation
+    tree_acds = nx.Graph()
+    all_nodes = List()
+    previous_nodes = List()
+
+    starting_index = 0
+    n = np.zeros(0, dtype=np.int)
+
+    # Create first node
+    node_start = NodeOpti(0, 0, 0., np.zeros(0, dtype=np.int8), np.zeros(0, dtype=np.int8), 0., graph_width)
+    all_nodes.append(node_start)
+    previous_nodes.append(node_start)
+    tree_acds.add_node(node_start.node_index, pos=node_start.pos)
+
+    # Loop
+    for i in range(len(timestamps) - 2):
+        # Select stretch
+        stretch = timestamps[i:i + 3]
+
+        # Compute aCD's
+        acds, acds_error, acds_multiples = compute_acds_multiples(np.expand_dims(np.array(stretch), 0),
+                                                                  notes=notes, plot=False)
+
+        if len(acds) == 0:
+            raise NotImplementedError('Graph break not handled yet.')
+
+        acds_durations = np.diff(acds_multiples, axis=-1)
+
+        n = np.concatenate((n, np.array([len(acds)])))
+
+        # Add nodes
+        current_nodes = List()
+        for p_node in previous_nodes:
+            # Check possible nodes
+            possible_nodes = List()
+            for k, acd in enumerate(acds):
+                # Check go to node is possible
+                node = NodeOpti(starting_index + 1, k, acd, acds_multiples[k, :], acds_durations[k, :], acds_error[k],
+                                p_node.node_width)
+                coherent_durations = check_coherent_durations(p_node, node)
+                if coherent_durations:
+                    possible_nodes.append(node)
+                else:
+                    Node.current_index -= 1
+
+            # Add possible nodes
+            length_possible_nodes = len(possible_nodes)
+            for k, node in enumerate(possible_nodes):
+                node.node_width /= length_possible_nodes
+                pos_x = p_node.pos[1] + (k - (length_possible_nodes - 1) / 2) * node.node_width
+                pos_y = - (starting_index + 1) * graph_height
+                node.pos = (-pos_y, pos_x)
+
+                all_nodes.append(node)
+                current_nodes.append(node)
+
+                tree_acds.add_node(node.node_index, pos=node.pos)
+
+                weight = compute_weight_optimal(p_node, node)
+                tree_acds.add_edge(p_node.node_index, node.node_index, weight=weight)
+
+        previous_nodes = current_nodes
+        starting_index += 1
+
+    # Final Node
+    if with_final_node:
+        final_node = NodeOpti(starting_index + 1, 0, 0., np.ones(0, dtype=np.int8), np.ones(0, dtype=np.int8), 0.,
+                              0., (starting_index + 1, 0.))
         all_nodes.append(final_node)
         tree_acds.add_node(final_node.node_index, pos=final_node.pos)
         for p_node in previous_nodes:

@@ -11,7 +11,7 @@ plt.rcParams.update({"font.sans-serif": ["CMU Serif"], "font.size": 12})
 def plot_acds(candidates, errors, acds, acds_errors, threshold,
               save=False, save_name='', fig_size=(5., 2.5), latex=False):
     fig = plt.figure(figsize=fig_size)
-    line_error = plt.plot(candidates[0, :], errors)
+    line_error = plt.plot(candidates[:, 0], errors)
     line_threshold = plt.axhline(y=threshold, color='k')
     points_acds = plt.scatter(acds, acds_errors, color='r')
 

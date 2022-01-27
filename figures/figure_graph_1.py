@@ -15,13 +15,16 @@ max_cand = 1.
 res_cand = 0.001
 center = True
 
+error_weight = 1.
+tempo_var_weight = 1.
+
 # Timestamps
 timestamps = np.array([0., 1.018, 1.531, 2.061, 2.888, 3.179, 4.286])
 
 # Create Graph
 start = time()
 graph = create_graph(timestamps, threshold=threshold, min_cand=min_cand, max_cand=max_cand, res_cand=res_cand,
-                     frame_size=frame_size)
+                     frame_size=frame_size, error_weight=error_weight, tempo_var_weight=tempo_var_weight)
 print('Time to create graph: %.3f' % (time() - start))
 
 # Plot Graph aCD's
@@ -30,10 +33,10 @@ node_labels = {idx: round(graph.nodes[idx]['acd'], 3) for idx in graph.nodes}
 
 color = 1. * np.ones((len(graph), 3))
 
-fig = plt.figure(figsize=(6., 2.8))
+fig = plt.figure(figsize=(6., 1.5))
 plt.axis('off')
 nx.draw_networkx(graph, pos=pos, arrows=True, with_labels=True, labels=node_labels,
-                 node_size=300*frame_size, node_color=color, font_size=10)
+                 node_size=300*frame_size, node_color=color, font_size=12)
 
 fig.savefig('figure_graph_1-acd.eps', bbox_inches='tight', pad_inches=0, transparent=True)
 fig.savefig('figure_graph_1-acd.png', bbox_inches='tight', pad_inches=0, transparent=True)
@@ -44,13 +47,30 @@ node_labels = {idx: array_to_string(graph.nodes[idx]['durations']) for idx in gr
 
 color = 1. * np.ones((len(graph), 3))
 
-fig = plt.figure(figsize=(6., 2.8))
+fig = plt.figure(figsize=(6., 1.5))
 plt.axis('off')
 nx.draw_networkx(graph, pos=pos, arrows=True, with_labels=True, labels=node_labels,
-                 node_size=300*frame_size, node_color=color, font_size=11)
+                 node_size=300*frame_size, node_color=color, font_size=12)
 
 fig.savefig('figure_graph_1-dur.eps', bbox_inches='tight', pad_inches=0, transparent=True)
 fig.savefig('figure_graph_1-dur.png', bbox_inches='tight', pad_inches=0, transparent=True)
+# plt.show()
+
+# # Plot Graph both
+# pos = nx.get_node_attributes(graph, 'pos')
+# node_labels = {idx: 'aCD: ' + str(round(graph.nodes[idx]['acd'], 3)) + '\n' +
+#                     r'$\Delta$: ' + array_to_string(graph.nodes[idx]['durations'])
+#                for idx in graph.nodes}
+#
+# color = 1. * np.ones((len(graph), 3))
+#
+# fig = plt.figure(figsize=(6., 2.8))
+# plt.axis('off')
+# nx.draw_networkx(graph, pos=pos, arrows=True, with_labels=True, labels=node_labels,
+#                  node_size=300*frame_size, node_color=color, font_size=11)
+#
+# fig.savefig('figure_graph_1.eps', bbox_inches='tight', pad_inches=0, transparent=True)
+# fig.savefig('figure_graph_1.png', bbox_inches='tight', pad_inches=0, transparent=True)
 plt.show()
 
 if __name__ == '__main__':

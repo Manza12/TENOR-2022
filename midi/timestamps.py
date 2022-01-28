@@ -1,8 +1,8 @@
 import numpy as np
 import pretty_midi as pm
-from plot import plot_timestamps, plot_timestamps_bis
+from plot import plot_timestamps
 
-midi = pm.PrettyMIDI('mozart_1.mid')
+midi = pm.PrettyMIDI('mozart_2.mid')
 
 timestamps = np.zeros(0)
 notes = np.zeros(0)
@@ -15,7 +15,7 @@ indexes = np.argsort(timestamps)
 timestamps = timestamps[indexes]
 notes = notes[indexes]
 
-plot_timestamps_bis(timestamps, notes=notes)
+plot_timestamps(timestamps, notes=notes)
 
 if __name__ == '__main__':
     pass

@@ -32,8 +32,8 @@ def plot_acds(candidates, errors, acds, acds_errors, threshold,
     return fig
 
 
-def plot_timestamps(timestamps, threshold, min_cand=0.001, max_cand=1., res_cand=0.001, start_cand=0.1,
-                    fig_size=(4., 1.2), slider=True, box=None, notes=()):
+def plot_timestamps(timestamps, threshold=0.05, min_cand=0.001, max_cand=1., res_cand=0.001, start_cand=0.1,
+                    fig_size=(4., 1.2), save=False, slider=True, box=None, notes=()):
     n = len(timestamps)
 
     if len(notes) == 0:
@@ -50,7 +50,10 @@ def plot_timestamps(timestamps, threshold, min_cand=0.001, max_cand=1., res_cand
 
     ax.set_xlabel('Time (s)')
     ax.get_yaxis().set_ticks([])
-    ax.set_ylim([-0.1, 0.5])
+    if not len(notes) == 0:
+        ax.set_ylim([np.min(notes) - 2, np.max(notes) + 2])
+    else:
+        ax.set_ylim([-0.1, 0.5])
 
     line = ()
     for i in range(n):
@@ -58,7 +61,9 @@ def plot_timestamps(timestamps, threshold, min_cand=0.001, max_cand=1., res_cand
         ax.add_line(line)
 
     def update(val):
+        x_lim = ax.get_xlim()
         ax.set_xticks(np.arange(0., timestamps.max(), val), minor=False)
+        ax.set_xlim(x_lim)
         ax.xaxis.grid(True, which='major')
 
     update(start_cand)
@@ -77,16 +82,17 @@ def plot_timestamps(timestamps, threshold, min_cand=0.001, max_cand=1., res_cand
         )
         grid_slider.on_changed(update)
 
-    if not box:
-        x_min = 0.
-        y_min = 0.
-        x_max = fig_size[0]
-        y_max = fig_size[1]
-        fig.savefig('figure_grid.png', bbox_inches=trans.Bbox([[x_min, y_min], [x_max, y_max]]), transparent=True)
-        fig.savefig('figure_grid.eps', bbox_inches=trans.Bbox([[x_min, y_min], [x_max, y_max]]), transparent=True)
-    else:
-        fig.savefig('figure_grid.png', bbox_inches=box, transparent=True)
-        fig.savefig('figure_grid.eps', bbox_inches=box, transparent=True)
+    if save:
+        if not box:
+            x_min = 0.
+            y_min = 0.
+            x_max = fig_size[0]
+            y_max = fig_size[1]
+            fig.savefig('figure_grid.png', bbox_inches=trans.Bbox([[x_min, y_min], [x_max, y_max]]), transparent=True)
+            fig.savefig('figure_grid.eps', bbox_inches=trans.Bbox([[x_min, y_min], [x_max, y_max]]), transparent=True)
+        else:
+            fig.savefig('figure_grid.png', bbox_inches=box, transparent=True)
+            fig.savefig('figure_grid.eps', bbox_inches=box, transparent=True)
 
     plt.show()
 

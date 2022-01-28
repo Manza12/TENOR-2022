@@ -38,6 +38,12 @@ graph = create_polyphonic_graph(timestamps, notes=notes, frame_size=frame_size, 
                                 error_weight=error_weight, tempo_var_weight=tempo_var_weight,
                                 plot_steps=plot_steps, start_node=True, final_node=True)
 
+# Shortest path
+path = nx.shortest_path(graph, source=0, target=1)
+print(path)
+
+# path_durations = path_to_durations(graph, path, frame_size=frame_size)
+
 # Plot Graph aCD's
 pos = nx.get_node_attributes(graph, 'pos')
 # node_labels = {idx: array_to_string(graph.nodes[idx]['durations']) for idx in graph.nodes}
@@ -53,8 +59,8 @@ nx.draw_networkx(graph, pos=pos, arrows=True, with_labels=True, labels=node_labe
 fig.axes[0].set_ylim([-1.5, 1.5])
 fig.axes[0].set_xlim([-2, 22])
 
-fig.savefig('figure_polyphonic_1.eps', bbox_inches='tight', pad_inches=0, transparent=True)
-fig.savefig('figure_polyphonic_1.png', bbox_inches='tight', pad_inches=0, transparent=True)
+# fig.savefig('figure_polyphonic_1.eps', bbox_inches='tight', pad_inches=0, transparent=True)
+# fig.savefig('figure_polyphonic_1.png', bbox_inches='tight', pad_inches=0, transparent=True)
 
 plt.show()
 

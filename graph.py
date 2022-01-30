@@ -111,6 +111,7 @@ def create_polyphonic_graph(timestamps, notes, frame_size=2., hop_size=1., start
     graph = nx.DiGraph(**kwargs)
     K = np.zeros(0, dtype=np.int)
     previous_nodes = []
+    frames = []
 
     # Start node
     if start_node:
@@ -128,6 +129,7 @@ def create_polyphonic_graph(timestamps, notes, frame_size=2., hop_size=1., start
         # Select stretch
         indexes = np.where(np.logical_and(t_0 <= timestamps, timestamps < t_0 + frame_size))
         stretch = timestamps[indexes]
+        frames.append(stretch)
 
         # Compute aCD's
         acds, acds_errors, acds_multiples, acds_durations = compute_acds(stretch, **kwargs)
@@ -176,6 +178,7 @@ def create_polyphonic_graph(timestamps, notes, frame_size=2., hop_size=1., start
         for i in range(len(previous_nodes)):
             graph.add_edge(previous_nodes[i], 1, weight=0., color=(0., 0., 0.))
 
+    graph.graph['frames'] = frames
     return graph
 
 

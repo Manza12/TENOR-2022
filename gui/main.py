@@ -202,12 +202,38 @@ class FocusedGraphFrame(ttk.Frame):
 
         # Figure
         timestamps = np.array([0., 0.98, 1.52, 2.0, 2.53, 3.03])
-        self.graph = self.plot_graph(timestamps, app.acd_frame)
+        self.graph_dict = self.plot_graph(timestamps, app)
 
-    def onclick(self, event):
-        graph = self.graph
+    def onclick(self, event, app):
+        nodes = self.graph_dict['nodes']
+        nodes.remove()
 
-    def plot_graph(self, timestamps, acd_frame, current_frame=1):
+        canvas = event.canvas
+        fig = canvas.figure
+        ax = fig.gca()
+
+        graph = self.graph_dict['graph']
+        pos = nx.get_node_attributes(graph, 'pos')
+
+        color_circles = self.color * np.ones((len(graph), 3))
+        nodelist = list(graph)
+        for n, node in enumerate(nodelist):
+            node_x = pos[node][0]
+            node_y = pos[node][1]
+            distance = np.sqrt((node_x - event.xdata)**2 + (node_y - event.ydata)**2)
+            if distance < 0.5:
+                print(node)
+                color_circles[n, :] = np.array([1., 0.8, 0.8])
+                break
+
+        self.graph_dict['nodes'] = nx.draw_networkx_nodes(graph, pos=pos, ax=ax, node_size=800,
+                                                          node_color=color_circles, node_shape='o')
+
+        # app.acd_frame
+        canvas.draw()
+
+    def plot_graph(self, timestamps, app, current_frame=1):
+        acd_frame = app.acd_frame
         threshold = acd_frame.threshold
         min_cand = acd_frame.min_candidate
         max_cand = acd_frame.max_candidate
@@ -222,6 +248,7 @@ class FocusedGraphFrame(ttk.Frame):
         color_circles = self.color * np.ones((len(graph), 3))
 
         fig = Figure(figsize=(self.width / 100, self.height / 100), dpi=100)
+        fig.subplots_adjust(bottom=0., right=1., left=0., top=1.)
 
         canvas = FigureCanvasTkAgg(fig, master=self)
         canvas.draw()
@@ -231,14 +258,22 @@ class FocusedGraphFrame(ttk.Frame):
         ax.axis('off')
         center_frame = current_frame - 1
         ax.set_xlim([center_frame - 1 - 0.2, center_frame + 1 + 0.2])
+
+        # Plot graph
         nodes = nx.draw_networkx_nodes(graph, pos=pos, ax=ax, node_size=800, node_color=color_circles, node_shape='o')
         edges = nx.draw_networkx_edges(graph, pos=pos, ax=ax, arrows=True)
         labels = nx.draw_networkx_labels(graph, pos=pos, ax=ax, labels=node_labels, font_size=12)
+
+        # Update vertical limits
+        y_lim = ax.get_ylim()
+        ax.set_ylim([y_lim[0] - 0.5, y_lim[1] + 0.2])
+
+        # Draw
         canvas.draw()
 
-        fig.canvas.mpl_connect('button_press_event', self.onclick)
+        fig.canvas.mpl_connect('button_press_event', lambda event: self.onclick(event, app))
 
-        return {'nodes': nodes, 'edges': edges, 'labels': labels}
+        return {'graph': graph, 'nodes': nodes, 'edges': edges, 'labels': labels}
 
 
 class RhythmTranscriptionApp(tk.Tk):

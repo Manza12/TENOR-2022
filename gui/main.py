@@ -117,6 +117,8 @@ class GridFrame(ttk.Frame):
 
         self.grid(row=0, column=1, padx=pad_x, pady=pad_y)
 
+        self.grid_slider = None
+
         # Figure
         timestamps = np.array([0., 0.98, 1.52])
         self.plot_grid(timestamps, app.acd_frame)
@@ -162,13 +164,13 @@ class GridFrame(ttk.Frame):
             ax.set_xlim(x_lim)
             ax.xaxis.grid(True, which='major')
 
-            grid_slider.valtext.set_text(str(round(acd, 3)) + ' s')
+            self.grid_slider.valtext.set_text(str(round(acd, 3)) + ' s')
             # note_slider.valtext.set_text(str(round(timestamps[idx], 3)) + ' s')
 
         ax.legend([points, line], ['timestamps', 'threshold'])
 
         ax_slider = fig.add_axes([0.15, 0.05, 0.65, 0.05])
-        grid_slider = Slider(
+        self.grid_slider = Slider(
             ax=ax_slider,
             label='aCD',
             valmin=min_cand,
@@ -177,7 +179,7 @@ class GridFrame(ttk.Frame):
             valstep=res_cand
         )
 
-        grid_slider.on_changed(lambda val: update(val, 0))
+        self.grid_slider.on_changed(lambda val: update(val, 0))
 
         update(start_cand, 0)
 
@@ -214,6 +216,7 @@ class FocusedGraphFrame(ttk.Frame):
 
         graph = self.graph_dict['graph']
         pos = nx.get_node_attributes(graph, 'pos')
+        labels = self.graph_dict['labels']
 
         color_circles = self.color * np.ones((len(graph), 3))
         nodelist = list(graph)
@@ -222,14 +225,14 @@ class FocusedGraphFrame(ttk.Frame):
             node_y = pos[node][1]
             distance = np.sqrt((node_x - event.xdata)**2 + (node_y - event.ydata)**2)
             if distance < 0.5:
-                print(node)
+                # print(node)
                 color_circles[n, :] = np.array([1., 0.8, 0.8])
+                app.grid_frame.grid_slider.set_val(float(labels[node].get_text()))
                 break
 
         self.graph_dict['nodes'] = nx.draw_networkx_nodes(graph, pos=pos, ax=ax, node_size=800,
                                                           node_color=color_circles, node_shape='o')
 
-        # app.acd_frame
         canvas.draw()
 
     def plot_graph(self, timestamps, app, current_frame=1):

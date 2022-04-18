@@ -71,19 +71,19 @@ class PianoRollFrame(ttk.Frame):
         # Layout
         self.grid(row=0, column=0, padx=pad_x, pady=pad_y)
 
-        # Figure
-        fig = Figure(figsize=(self.width / 100, self.height / 100), dpi=100)
-        t = np.arange(0, 3, .01)
-        fig.add_subplot(111).plot(t, 2 * np.sin(2 * np.pi * t))
-
-        canvas = FigureCanvasTkAgg(fig, master=self)
-        canvas.draw()
-        canvas.get_tk_widget().pack(side=tk.TOP, anchor=tk.NW)
-
-        if toolbar_on:
-            toolbar = NavigationToolbar2Tk(canvas, self)
-            toolbar.update()
-            canvas.get_tk_widget().pack(side=tk.TOP)
+        # # Figure
+        # fig = Figure(figsize=(self.width / 100, self.height / 100), dpi=100)
+        # t = np.arange(0, 3, .01)
+        # fig.add_subplot(111).plot(t, 2 * np.sin(2 * np.pi * t))
+        #
+        # canvas = FigureCanvasTkAgg(fig, master=self)
+        # canvas.draw()
+        # canvas.get_tk_widget().pack(side=tk.TOP, anchor=tk.NW)
+        #
+        # if toolbar_on:
+        #     toolbar = NavigationToolbar2Tk(canvas, self)
+        #     toolbar.update()
+        #     canvas.get_tk_widget().pack(side=tk.TOP)
 
 
 class FullGraphFrame(ttk.Frame):
@@ -177,21 +177,9 @@ class GridFrame(ttk.Frame):
             valstep=res_cand
         )
 
-        # ax_slider_note = fig.add_axes([0.15, 0.1, 0.65, 0.03])
-        # note_slider = Slider(
-        #     ax=ax_slider_note,
-        #     label='timestamp',
-        #     valmin=0,
-        #     valmax=n - 1,
-        #     valinit=0,
-        #     valstep=1
-        # )
         grid_slider.on_changed(lambda val: update(val, 0))
-        # note_slider.on_changed(lambda val: update(grid_slider.val, val))
 
         update(start_cand, 0)
-
-        # return fig
 
 
 class FocusedGraphFrame(ttk.Frame):
@@ -214,7 +202,10 @@ class FocusedGraphFrame(ttk.Frame):
 
         # Figure
         timestamps = np.array([0., 0.98, 1.52, 2.0, 2.53, 3.03])
-        self.plot_graph(timestamps, app.acd_frame)
+        self.graph = self.plot_graph(timestamps, app.acd_frame)
+
+    def onclick(self, event):
+        graph = self.graph
 
     def plot_graph(self, timestamps, acd_frame, current_frame=1):
         threshold = acd_frame.threshold
@@ -238,18 +229,16 @@ class FocusedGraphFrame(ttk.Frame):
 
         ax = fig.gca()
         ax.axis('off')
-        ax.set_xlim([current_frame - 1 - 0.2, current_frame + 1 + 0.2])
-        nx.draw_networkx_nodes(graph, pos=pos, ax=ax, node_size=800, node_color=color_circles, node_shape='o')
-        nx.draw_networkx_edges(graph, pos=pos, ax=ax, arrows=True)
-        nx.draw_networkx_labels(graph, pos=pos, ax=ax, labels=node_labels, font_size=12)
+        center_frame = current_frame - 1
+        ax.set_xlim([center_frame - 1 - 0.2, center_frame + 1 + 0.2])
+        nodes = nx.draw_networkx_nodes(graph, pos=pos, ax=ax, node_size=800, node_color=color_circles, node_shape='o')
+        edges = nx.draw_networkx_edges(graph, pos=pos, ax=ax, arrows=True)
+        labels = nx.draw_networkx_labels(graph, pos=pos, ax=ax, labels=node_labels, font_size=12)
         canvas.draw()
 
-        toolbar = NavigationToolbar2Tk(canvas, self)
-        toolbar.update()
-        canvas.get_tk_widget().pack(side=tk.TOP)
+        fig.canvas.mpl_connect('button_press_event', self.onclick)
 
-        # nx.draw_networkx(graph, pos=pos, arrows=True, with_labels=True, labels=node_labels,
-        #                  node_size=300 * self.frame_size, node_color=color_circles, font_size=12)
+        return {'nodes': nodes, 'edges': edges, 'labels': labels}
 
 
 class RhythmTranscriptionApp(tk.Tk):

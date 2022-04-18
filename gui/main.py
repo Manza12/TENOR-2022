@@ -15,7 +15,7 @@ from graph import create_graph
 class ACDFrame(ttk.Frame):
     layout_parameters = {'height': 500, 'width': 300,
                          'left': 0, 'top': 0, 'rigth': 0, 'bottom': 0,
-                         'borderwidth': 0, 'relief': 'raised',
+                         'borderwidth': 5, 'relief': 'raised',
                          'pad_x': 10, 'pad_y': 5}
     acd_parameters = {}
 
@@ -51,7 +51,66 @@ class ACDFrame(ttk.Frame):
         self['borderwidth'] = self.borderwidth
         self['relief'] = self.relief
 
+        self.threshold_spinner = None
+        self.min_acd_spinner = None
+        self.max_acd_spinner = None
+        self.res_acd_spinner = None
+
+        self.plot_parameters()
         self.grid(row=0, column=0, padx=self.pad_x, pady=self.pad_y)
+
+    def update_threshold(self):
+        self.threshold = float(self.threshold_spinner.get())
+        self.plot_parameters()
+
+    def update_min_acd(self):
+        self.min_candidate = float(self.min_acd_spinner.get())
+        self.plot_parameters()
+
+    def update_max_acd(self):
+        self.max_candidate = float(self.max_acd_spinner.get())
+        self.plot_parameters()
+
+    def update_res_acd(self):
+        self.resolution = float(self.res_acd_spinner.get())
+        self.plot_parameters()
+
+    def plot_parameters(self):
+        # Threshold
+        threshold_label = ttk.Label(master=self, text='Threshold')
+        threshold_label.grid(row=0, column=0, padx=self.pad_x, pady=self.pad_y)
+
+        self.threshold_spinner = ttk.Spinbox(master=self, from_=self.resolution, to=0.5, increment=self.resolution,
+                                             command=self.update_threshold)
+        self.threshold_spinner.set(self.threshold)
+        self.threshold_spinner.grid(row=0, column=1, padx=self.pad_x, pady=self.pad_y)
+
+        # Min ACD
+        min_acd_label = ttk.Label(master=self, text='Min ACD')
+        min_acd_label.grid(row=1, column=0, padx=self.pad_x, pady=self.pad_y)
+
+        self.min_acd_spinner = ttk.Spinbox(master=self, from_=min(self.resolution, 0.01), to=0.5,
+                                           increment=self.resolution, command=self.update_min_acd)
+        self.min_acd_spinner.set(self.min_candidate)
+        self.min_acd_spinner.grid(row=1, column=1, padx=self.pad_x, pady=self.pad_y)
+
+        # Max ACD
+        max_acd_label = ttk.Label(master=self, text='Max ACD')
+        max_acd_label.grid(row=2, column=0, padx=self.pad_x, pady=self.pad_y)
+
+        self.max_acd_spinner = ttk.Spinbox(master=self, from_=min(0.015, self.resolution), to=2.,
+                                           increment=self.resolution, command=self.update_max_acd)
+        self.max_acd_spinner.set(self.max_candidate)
+        self.max_acd_spinner.grid(row=2, column=1, padx=self.pad_x, pady=self.pad_y)
+
+        # ACD resolution
+        res_acd_label = ttk.Label(master=self, text='Resolution ACD')
+        res_acd_label.grid(row=3, column=0, padx=self.pad_x, pady=self.pad_y)
+
+        self.res_acd_spinner = ttk.Spinbox(master=self, from_=0.001, to=0.1, increment=0.001,
+                                           command=self.update_res_acd)
+        self.res_acd_spinner.set(self.resolution)
+        self.res_acd_spinner.grid(row=3, column=1, padx=self.pad_x, pady=self.pad_y)
 
 
 class PianoRollFrame(ttk.Frame):
@@ -188,7 +247,7 @@ class FocusedGraphFrame(ttk.Frame):
     frame_size = 3
     color = 0.9
 
-    def __init__(self, app, height=250, width=450, left=0, top=0, right=0, bottom=0, borderwidth=5, relief='raised',
+    def __init__(self, app, height=250, width=450, left=0, top=0, right=0, bottom=0, borderwidth=0, relief='raised',
                  pad_x=10, pad_y=5):
         super().__init__(master=app.plot_frame, height=height, width=width)
 
@@ -296,14 +355,15 @@ class RhythmTranscriptionApp(tk.Tk):
         self.parameters_frame = ttk.Frame(master=self)
         self.parameters_frame.grid(row=0, column=1)
 
-        self.acd_frame = ACDFrame(app=self, **ACDFrame.layout_parameters)
-
         # Plot frame
         self.plot_frame = ttk.Frame(master=self)
         self.plot_frame.grid(row=0, column=0)
 
         self.piano_roll_frame = PianoRollFrame(self)
         self.full_graph_frame = FullGraphFrame(self)
+
+        self.acd_frame = ACDFrame(app=self, **ACDFrame.layout_parameters)
+
         self.grid_frame = GridFrame(self)
         self.focused_graph_frame = FocusedGraphFrame(self)
 

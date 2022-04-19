@@ -1,6 +1,5 @@
 import networkx as nx
 from acds import compute_acds
-from plot import plot_timestamps_radio
 from utils import log_distance, linear_clipped_weight
 import numpy as np
 
@@ -69,7 +68,12 @@ def create_graph(timestamps, frame_size=3, start_node=False, final_node=False, *
         stretch = timestamps[n:n + frame_size]
 
         # Compute aCD's
-        acds, acds_errors, acds_multiples, acds_durations = compute_acds(stretch, **kwargs)
+        acds, acds_errors, acds_multiples, acds_durations = compute_acds(stretch,
+                                                                         threshold=kwargs['threshold'],
+                                                                         min_cand=kwargs['min_cand'],
+                                                                         max_cand=kwargs['max_cand'],
+                                                                         res_cand=kwargs['res_cand']
+                                                                         )
 
         # Length
         K = np.concatenate((K, np.array([len(acds)])))
@@ -105,8 +109,8 @@ def create_graph(timestamps, frame_size=3, start_node=False, final_node=False, *
     return graph
 
 
-def create_polyphonic_graph(timestamps, notes, frame_size=2., hop_size=1., start_node=False, final_node=False,
-                            plot_steps=False, **kwargs):
+def create_polyphonic_graph(timestamps, frame_size=2., hop_size=1., start_node=False, final_node=False,
+                            error_weight=1., tempo_var_weight=1., **kwargs):
     # Initialisation
     graph = nx.DiGraph(**kwargs)
     K = np.zeros(0, dtype=np.int)
@@ -132,15 +136,13 @@ def create_polyphonic_graph(timestamps, notes, frame_size=2., hop_size=1., start
         frames.append(stretch)
 
         # Compute aCD's
-        acds, acds_errors, acds_multiples, acds_durations = compute_acds(stretch, **kwargs)
-
-        if plot_steps:
-            plot_timestamps_radio(stretch, acds, notes=notes[indexes], fig_size=(7., 4.))
-        # import matplotlib.pyplot as plt
-        # plt.figure()
-        # plt.scatter(timestamps[indexes], notes[indexes])
-        # plt.scatter(acds[0] * acds_multiples[0, :] + timestamps[indexes].min(), notes[indexes])
-        # plt.show()
+        acds, acds_errors, acds_multiples, acds_durations = compute_acds(stretch,
+                                                                         threshold=kwargs['threshold'],
+                                                                         min_cand=kwargs['minimum_candidate'],
+                                                                         max_cand=kwargs['maximum_candidate'],
+                                                                         res_cand=kwargs['resolution_candidate'],
+                                                                         center=True,
+                                                                         )
 
         # Length
         K = np.concatenate((K, np.array([len(acds)])))
@@ -160,9 +162,7 @@ def create_polyphonic_graph(timestamps, notes, frame_size=2., hop_size=1., start
                 compatible = check_compatibility_polyphonic(graph, previous_nodes[i], (n, k))
 
                 if compatible:
-                    weight = compute_weight(graph, previous_nodes[i], (n, k),
-                                            kwargs['error_weight'],
-                                            kwargs['tempo_var_weight'])
+                    weight = compute_weight(graph, previous_nodes[i], (n, k), error_weight, tempo_var_weight)
                     graph.add_edge(previous_nodes[i], (n, k), weight=weight, color=(0., 0., 0.))
 
         previous_nodes = current_nodes

@@ -166,7 +166,7 @@ class FrameData:
         if self.focus_graph is None or self.midi_data is None:
             pass
         else:
-            raise NotImplementedError('Create grid with midi data and docus graph data.')
+            raise NotImplementedError('Create grid with midi data and focus graph data.')
 
 
 class Transcription:
@@ -407,7 +407,7 @@ if __name__ == "__main__":
     # Create the app
     rhythm_app = RhythmTranscriptionApp()
 
-    # Choose a dafult MIDI input
+    # Choose a default MIDI input
     rhythm_app.midi_data.file_path = Path('.') / Path('..') / Path('midi') / 'mozart_1.mid'
     rhythm_app.midi_data.open_midi_file(rhythm_app)
 

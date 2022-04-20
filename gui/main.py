@@ -40,17 +40,20 @@ default_parameters = {'threshold': 0.05,
 
 # App
 class RhythmTranscriptionApp(tk.Tk):
-    def __init__(self, title: str = 'Rhythm Transcription'):
+    def __init__(self, title: str = 'Rhythm Transcription', resizable: (bool, bool) = (False, False)):
         super().__init__()
 
         # Title
         self.title(title)
 
+        # Resizable
+        self.resizable(resizable[0], resizable[1])
+
         # Models
         self.parameters_model = ParametersModel()
         self.input_model = InputModel()
         self.graph_model = GraphModel()
-        # self.radio_model = RadioModel()
+        self.radio_model = RadioModel()
         # self.grid_model = GridModel()
         # self.transcription_model = TranscriptionModel()
 
@@ -58,16 +61,16 @@ class RhythmTranscriptionApp(tk.Tk):
         self.parameters_controller = ParametersController()
         self.input_controller = InputController(self)
         self.graph_controller = GraphController(self)
+        self.radio_controller = RadioController(self)
         # self.grid_controller = GridController()
-        # self.radio_controller = RadioController()
         # self.transcription_controller = TranscriptionController()
 
         # Views
         self.parameters_view = ParametersView(self, self.parameters_model)
         self.input_view = InputView(self, self.input_model, self.input_controller)
         self.graph_view = GraphView(self)
+        self.radio_view = RadioView(self)
         # self.grid_view = GridView(self)
-        # self.radio_view = RadioView(self)
         # self.transcription_view = TranscriptionView(self)
 
         # Menu
@@ -268,8 +271,8 @@ class InputController:
                                                         text='Frame ' + str(self.app.input_model.current_frame))
             self.app.input_view.slider_label.grid(row=0, column=1)
 
-            # Trigger graph adjust
-            self.app.graph_view.adjust_graph(self.app.input_model)
+            # Trigger update frame
+            self.app.graph_controller.update_current_frame()
 
     def move_forward(self):
         start = self.app.input_model.time_start
@@ -286,8 +289,8 @@ class InputController:
                                                         text='Frame ' + str(self.app.input_model.current_frame))
             self.app.input_view.slider_label.grid(row=0, column=1)
 
-            # Trigger graph adjust
-            self.app.graph_view.adjust_graph(self.app.input_model)
+            # Trigger update frame
+            self.app.graph_controller.update_current_frame()
 
     def update_piano_roll_view(self):
         # Plot Piano roll
@@ -374,6 +377,9 @@ class GraphModel:
         self.timestamps = None
         self.graph = None
 
+        self.current_frame: int = 1
+        self.current_acds_list: List[float] = []
+
     def build_graph(self, input_model: InputModel, parameters_model: ParametersModel):
         self.timestamps = recover_timestamps(input_model.piece, parameters_model.use_offsets)
         self.graph = create_polyphonic_graph(self.timestamps,
@@ -392,6 +398,8 @@ class GraphView(tk.Frame):
     width = 450
     height = 250
 
+    dpi = 100
+
     pad_x = 10
     pad_y = 5
 
@@ -402,7 +410,8 @@ class GraphView(tk.Frame):
         self.master: RhythmTranscriptionApp = app
 
         # Create figure and canvas
-        self.figure: Figure = Figure(figsize=(self.width / 100, self.height / 100), dpi=100)
+        self.figure: Figure = Figure(figsize=(InputView.width / InputView.dpi, InputView.height / InputView.dpi),
+                                     dpi=InputView.dpi)
         self.canvas: FigureCanvasTkAgg = FigureCanvasTkAgg(self.figure, master=self)
         self.ax: Optional[Axes] = None
 
@@ -443,16 +452,18 @@ class GraphView(tk.Frame):
         # Draw
         self.canvas.draw()
 
-    def adjust_graph(self, input_model: InputModel):
+    def adjust_graph(self, graph_model: GraphModel):
         # Update horizontal limits
-        center_frame = input_model.current_frame - 1
+        center_frame = graph_model.current_frame - 1
         self.ax.set_xlim(center_frame - 2 - 0.2, center_frame + 2 + 0.2)
 
         # Update vertical limits
+        graph_model.current_acds_list = []
         y_0 = 0
         y_1 = 0
         for key in self.pos.keys():
             if key[0] == center_frame:
+                graph_model.current_acds_list.append(float(self.labels[key].get_text()))
                 y_0 = min(y_0, self.pos[key][1])
                 y_1 = max(y_1, self.pos[key][1])
         self.ax.set_ylim(y_0 - 0.5, y_1 + 0.5)
@@ -467,55 +478,91 @@ class GraphController:
         self.app: RhythmTranscriptionApp = app
 
     def update_graph(self):
+        # Update frame
+        self.app.graph_model.current_frame = self.app.input_model.current_frame
+
         # Update graph model
         self.app.graph_model.build_graph(self.app.input_model, self.app.parameters_model)
 
         # Update graph view
         self.app.graph_view.plot_graph(self.app.graph_model)
-        self.app.graph_view.adjust_graph(self.app.input_model)
+        self.app.graph_view.adjust_graph(self.app.graph_model)
+
+        # Trigger radio
+        self.app.radio_controller.update_radio(self.app.graph_model)
+
+    def update_current_frame(self):
+        # Update frame
+        self.app.graph_model.current_frame = self.app.input_model.current_frame
+
+        # Update graph
+        self.app.graph_view.adjust_graph(self.app.graph_model)
+
+        # Update radio
+        self.app.radio_controller.update_radio(self.app.graph_model)
 
 
-# ## Radio
-# # Model
-# class RadioModel:
-#     def __init__(self, full_graph: Optional[FullGraph] = None):
-#         self.full_graph: Optional[FullGraph] = full_graph
-#         self.current_acd: Optional[float] = None
-#
-#         if self.full_graph is None:
-#             pass
-#         else:
-#             raise NotImplementedError('Create focus graph with full graph data.')
-#
-#
-# # View
-# class RadioView(tk.Frame):
-#     width = 450
-#     height = 250
-#
-#     pad_x = 10
-#     pad_y = 5
-#
-#     def __init__(self, app: RhythmTranscriptionApp):
-#         super().__init__(master=app)
-#
-#         # Create figure and canvas
-#         self.figure: Figure = Figure(figsize=(self.width / 100, self.height / 100), dpi=100)
-#         self.canvas: FigureCanvasTkAgg = FigureCanvasTkAgg(self.figure, master=self)
-#
-#         self.canvas.get_tk_widget().pack()
-#         self.canvas.draw()
-#
-#         # Layout
-#         self.grid(row=1, column=1, padx=self.pad_x, pady=self.pad_y)
-#
-#
-# # Controller
-# class RadioController:
-#     def __init__(self):
-#         pass
-#
-#
+## Radio ##
+# Model
+class RadioModel:
+    def __init__(self):
+        self.acds_list: Optional[List[float]] = None
+
+    @classmethod
+    def from_list(cls, acds_list: List[float]):
+        instance = cls()
+        instance.acds_list = acds_list
+        return instance
+
+
+# View
+class RadioView(tk.Frame):
+    width = 450
+    height = 250
+
+    dpi = 100
+
+    pad_x = 10
+    pad_y = 5
+
+    relief = tk.RAISED
+    border_width = 5
+
+    def __init__(self, app: RhythmTranscriptionApp):
+        super().__init__(master=app, height=RadioView.height, width=RadioView.width,
+                         relief=RadioView.relief, borderwidth=RadioView.border_width)
+
+        # Create buttons list
+        self.buttons_list: List[ttk.Radiobutton] = []
+        self.variable: tk.StringVar = tk.StringVar()
+
+        # Layout
+        self.grid(row=1, column=1, padx=self.pad_x, pady=self.pad_y)
+
+    def update_buttons(self, radio_model: RadioModel):
+        for button in self.buttons_list:
+            button.grid_remove()
+
+        for a, acd in enumerate(radio_model.acds_list):
+            radio_button = ttk.Radiobutton(self, text=str(acd), value=acd, variable=self.variable)
+            radio_button.grid(row=0, column=a, padx=5, pady=5)
+
+            self.buttons_list.append(radio_button)
+
+
+# Controller
+class RadioController:
+    def __init__(self, app: RhythmTranscriptionApp):
+        self.app: RhythmTranscriptionApp = app
+
+    def update_radio(self, graph_model: GraphModel):
+        # Update model
+        self.app.radio_model = RadioModel.from_list(graph_model.current_acds_list)
+
+        # Update view
+        self.app.radio_view.update_buttons(self.app.radio_model)
+
+
 # ## Grid ##
 # # Model
 # class GridModel:
@@ -527,7 +574,7 @@ class GraphController:
 #             pass
 #         else:
 #             raise NotImplementedError('Create grid with midi data and focus graph data.')
-#
+
 #
 # # View
 # class GridView(tk.Frame):
@@ -605,7 +652,7 @@ if __name__ == "__main__":
     rhythm_app = RhythmTranscriptionApp()
 
     # Choose a default MIDI input
-    default_path = Path('.') / Path('..') / Path('midi') / 'mozart_1.mid'
+    default_path = Path('.') / Path('..') / Path('midi') / 'chopin_1.mid'
     rhythm_app.update_file_change(default_path)
 
     # Main loop

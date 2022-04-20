@@ -34,7 +34,7 @@ def check_compatibility_polyphonic(graph, p_idx, c_idx):
     return np.all(durations_p[shift:] == durations_c[0:len(durations_p)-shift])
 
 
-def compute_weight(graph, p_idx, c_idx, error_weight=1., tempo_var_weight=1.):
+def compute_weight(graph, p_idx, c_idx, error_weight=1., tempo_var_weight=1., threshold=0.05):
     if p_idx == 0:
         return 0.
 
@@ -42,7 +42,7 @@ def compute_weight(graph, p_idx, c_idx, error_weight=1., tempo_var_weight=1.):
     acd_c = graph.nodes[c_idx]['acd']
     tempo_variation = log_distance(acd_p, acd_c)
     error = graph.nodes[c_idx]['error']
-    weight_error = linear_clipped_weight(error, graph.graph['threshold'])
+    weight_error = linear_clipped_weight(error, threshold)
 
     total_weight = error_weight * weight_error + tempo_var_weight * tempo_variation
     return total_weight
@@ -112,7 +112,7 @@ def create_graph(timestamps, frame_size=3, start_node=False, final_node=False, *
 def create_polyphonic_graph(timestamps, frame_size=2., hop_size=1., start_node=False, final_node=False,
                             error_weight=1., tempo_var_weight=1., **kwargs):
     # Initialisation
-    graph = nx.DiGraph(**kwargs)
+    graph = nx.DiGraph()
     K = np.zeros(0, dtype=np.int)
     previous_nodes = []
     frames = []
@@ -136,13 +136,7 @@ def create_polyphonic_graph(timestamps, frame_size=2., hop_size=1., start_node=F
         frames.append(stretch)
 
         # Compute aCD's
-        acds, acds_errors, acds_multiples, acds_durations = compute_acds(stretch,
-                                                                         threshold=kwargs['threshold'],
-                                                                         min_cand=kwargs['minimum_candidate'],
-                                                                         max_cand=kwargs['maximum_candidate'],
-                                                                         res_cand=kwargs['resolution_candidate'],
-                                                                         center=True,
-                                                                         )
+        acds, acds_errors, acds_multiples, acds_durations = compute_acds(stretch, **kwargs, center=True)
 
         # Length
         K = np.concatenate((K, np.array([len(acds)])))

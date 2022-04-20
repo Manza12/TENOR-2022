@@ -21,7 +21,7 @@ class ACDFrame(ttk.Frame):
 
     def __init__(self, app, threshold=0.05, min_candidate=0.15, max_candidate=1., resolution=0.001, start_candidate=0.5,
                  use_offsets=False, frame_length=2., overlap=2, **layout_parameters):
-        super().__init__(master=app.parameters_frame)
+        super().__init__(master=app.parameters_view)
 
         # ACD parameters
         self.threshold = threshold
@@ -286,7 +286,7 @@ class FocusedGraphFrame(ttk.Frame):
             if distance < 0.5:
                 # print(node)
                 color_circles[n, :] = np.array([1., 0.8, 0.8])
-                app.grid_frame.grid_slider.set_val(float(labels[node].get_text()))
+                app.grid_view.grid_slider.set_val(float(labels[node].get_text()))
                 break
 
         self.graph_dict['nodes'] = nx.draw_networkx_nodes(graph, pos=pos, ax=ax, node_size=800,

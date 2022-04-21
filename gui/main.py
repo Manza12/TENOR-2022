@@ -443,7 +443,7 @@ class GraphView(tk.Frame):
         self.figure: Figure = Figure(figsize=(InputView.width / InputView.dpi, InputView.height / InputView.dpi),
                                      dpi=InputView.dpi)
         self.canvas: FigureCanvasTkAgg = FigureCanvasTkAgg(self.figure, master=self)
-        self.ax: Optional[Axes] = None
+        self.ax: Optional[Axes] = self.figure.gca()
 
         self.canvas.get_tk_widget().pack()
         self.canvas.draw()
@@ -471,6 +471,7 @@ class GraphView(tk.Frame):
 
         self.canvas.get_tk_widget().pack(side=tk.TOP, expand=True, fill=tk.BOTH, anchor=tk.NW)
 
+        self.ax.remove()
         self.ax = self.figure.gca()
         self.ax.axis('off')
 
@@ -502,6 +503,25 @@ class GraphView(tk.Frame):
 class GraphController:
     def __init__(self, app: RhythmTranscriptionApp):
         self.app: RhythmTranscriptionApp = app
+
+    def update_color(self):
+        current_value = self.app.radio_view.variable.get()
+        nodes = self.app.graph_view.nodes
+        labels = self.app.graph_view.labels
+        current_frame = self.app.input_model.current_frame
+        started = False
+        for k, key in enumerate(labels.keys()):
+            if key[0] == current_frame - 1:
+                started = True
+                if labels[key].get_text() == current_value:
+                    nodes.properties()['edgecolor'][k] = [1., 0.7, 0.7, 1]
+                else:
+                    nodes.properties()['edgecolor'][k] = [GraphView.color, GraphView.color, GraphView.color, 1]
+            else:
+                if started:
+                    break
+
+        self.app.graph_view.canvas.draw()
 
     def update_graph(self):
         # Update graph model
@@ -560,6 +580,10 @@ class RadioController:
         self.app.grid_controller.update_grid()
 
     def update_button(self):
+        # Update graph
+        self.app.graph_controller.update_color()
+
+        # Update grid
         self.app.grid_view.current_value = self.app.radio_view.variable
         self.app.grid_controller.plot_grid(float(self.app.grid_view.current_value.get()))
 
@@ -698,6 +722,7 @@ class GridView(tk.Frame):
         # Create figure and canvas
         self.figure: Figure = Figure(figsize=(InputView.width / InputView.dpi, InputView.height / InputView.dpi),
                                      dpi=InputView.dpi)
+        self.ax: Axes = self.figure.gca()
         self.canvas: FigureCanvasTkAgg = FigureCanvasTkAgg(self.figure, master=self.figure_frame)
 
         self.canvas.get_tk_widget().pack()
@@ -722,22 +747,17 @@ class GridView(tk.Frame):
         self.grid(row=0, column=1, padx=self.pad_x, pady=self.pad_y)
 
     def plot_grid_timestamps(self, grid_model: GridModel, threshold, input_model: InputModel):
-        ax = self.figure.gca()
+        self.ax.remove()
+        self.ax = self.figure.gca()
 
-        if self.points is None:
-            self.points = ax.scatter(grid_model.timestamps, grid_model.notes, color=GridView.dot_color)
-        else:
-            self.points.remove()
-            for line in ax.get_lines():
-                line.remove()
-            self.points = ax.scatter(grid_model.timestamps, grid_model.notes,  color=GridView.dot_color)
+        self.points = self.ax.scatter(grid_model.timestamps, grid_model.notes, color=GridView.dot_color)
 
         # Limits
-        ax.set_xlabel('Time (s)')
-        ax.get_yaxis().set_ticks([])
-        ax.set_ylim([np.min(grid_model.notes) - 2, np.max(grid_model.notes) + 2])
-        ax.set_xlim(input_model.frame_start - InputModel.time_resolution,
-                    input_model.frame_end + InputModel.time_resolution)
+        self.ax.set_xlabel('Time (s)')
+        self.ax.get_yaxis().set_ticks([])
+        self.ax.set_ylim([np.min(grid_model.notes) - 2, np.max(grid_model.notes) + 2])
+        self.ax.set_xlim(input_model.frame_start - InputModel.time_resolution,
+                         input_model.frame_end + InputModel.time_resolution)
 
         # Threshold lines
         line = ()
@@ -745,53 +765,44 @@ class GridView(tk.Frame):
             line = Line2D([grid_model.timestamps[i] - threshold,
                            grid_model.timestamps[i] + threshold],
                           [grid_model.notes[i], grid_model.notes[i]], color='r')
-            ax.add_line(line)
+            self.ax.add_line(line)
 
         # Legend
-        ax.legend([self.points, line], ['timestamps', 'threshold'])
+        self.ax.legend([self.points, line], ['timestamps', 'threshold'])
 
         self.canvas.draw()
 
 
-#
-# ## Transcription ##
-# # Model
-# class TranscriptionModel:
-#     def __init__(self, focus_graph: Optional[FocusGraph] = None):
-#         self.focus_graph: Optional[FocusGraph] = focus_graph
-#
-#
-# # View
-# class TranscriptionView(tk.Frame):
-#     pad_x = 10
-#     pad_y = 5
-#
-#     def __init__(self, app: RhythmTranscriptionApp):
-#         super().__init__(master=app)
-#         self.transcription: TranscriptionModel = app.transcription_model
-#
-#         # ACD widgets
-#         self.acd_label: tk.Label = tk.Label(master=self, text='ACD')
-#         self.acd_label.grid(row=0, column=0, padx=self.pad_x, pady=self.pad_y)
-#
-#         if self.transcription.focus_graph is None:
-#             current_acd: str = '0'
-#         elif self.transcription.focus_graph.current_acd is None:
-#             current_acd: str = '0'
-#         else:
-#             current_acd: str = str(self.transcription.focus_graph.current_acd)
-#
-#         self.acd_value_label: tk.Label = tk.Label(master=self, text=current_acd)
-#         self.acd_value_label.grid(row=0, column=1, padx=self.pad_x, pady=self.pad_y)
-#
-#         # Layout
-#         self.grid(row=1, column=2, padx=self.pad_x, pady=self.pad_y, sticky=tk.N)
-#
-#
-# # Controller
-# class TranscriptionController:
-#     def __init__(self):
-#         pass
+## Transcription ##
+# Model
+class TranscriptionModel:
+    def __init__(self):
+        pass
+
+
+# View
+class TranscriptionView(tk.Frame):
+    pad_x = 10
+    pad_y = 5
+
+    def __init__(self, app: RhythmTranscriptionApp):
+        super().__init__(master=app)
+
+        # ACD widgets
+        self.acd_label: tk.Label = tk.Label(master=self, text='ACD')
+        self.acd_label.grid(row=0, column=0, padx=self.pad_x, pady=self.pad_y)
+
+        self.acd_value_label: tk.Label = tk.Label(master=self, text='')
+        self.acd_value_label.grid(row=0, column=1, padx=self.pad_x, pady=self.pad_y)
+
+        # Layout
+        self.grid(row=1, column=2, padx=self.pad_x, pady=self.pad_y, sticky=tk.N)
+
+
+# Controller
+class TranscriptionController:
+    def __init__(self):
+        pass
 
 
 ########################################################################################################################

@@ -14,6 +14,18 @@ def recover_timestamps(piece: Piece, use_offset: bool) -> np.ndarray:
     return timestamps
 
 
+def recover_timestamps_notes(piece: Piece, use_offset: bool) -> (np.ndarray, np.ndarray):
+    timestamps_notes_list = []
+    for note in piece.notes:
+        timestamps_notes_list.append((note.start_seconds, note.note_number))
+
+        if use_offset:
+            timestamps_notes_list.append((note.end_seconds, note.note_number))
+    timestamps_notes_list.sort(key=lambda pair: pair[0])
+    timestamps_notes = np.array(timestamps_notes_list)
+    return timestamps_notes[:, 0], timestamps_notes[:, 1]
+
+
 def array_to_string(array: list):
     result = '('
     for i, ele in enumerate(array):

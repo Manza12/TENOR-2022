@@ -813,7 +813,7 @@ if __name__ == "__main__":
     rhythm_app = RhythmTranscriptionApp()
 
     # Choose a default MIDI input
-    default_path = Path('.') / Path('..') / Path('midi') / 'chopin_1.mid'
+    default_path = Path('.') / Path('..') / Path('midi') / 'mozart_1.mid'
     rhythm_app.update_file_change(default_path)
 
     # Main loop

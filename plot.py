@@ -3,9 +3,10 @@ import matplotlib.pyplot as plt
 import matplotlib.lines as lines
 import matplotlib.transforms as trans
 from matplotlib.widgets import Slider, RadioButtons
+import matplotlib as mpl
 
 
-plt.rcParams.update({"font.sans-serif": ["CMU Serif"], "font.size": 12})
+mpl.rc('font', family='CMU Serif', size=12)
 
 
 def plot_acds(candidates, errors, acds, acds_errors, threshold,
@@ -21,7 +22,7 @@ def plot_acds(candidates, errors, acds, acds_errors, threshold,
     plt.xlabel('Time (s)')
     plt.ylabel('Error (s)')
     plt.legend([points_acds, line_threshold, line_error[0]],
-               ['approximate common divisors', r'threshold ($\tau$ = 0.05 s)', r'$\epsilon_{T}$'])
+               ['approximate common divisors', r'threshold ($\tau$ = %.3f s)' % threshold, r'$\epsilon_{T}$'])
 
     plt.tight_layout()
 

@@ -59,7 +59,7 @@ class RhythmTranscriptionApp(tk.Tk):
         # self.transcription_model = TranscriptionModel()
 
         # Controllers
-        self.parameters_controller = ParametersController()
+        self.parameters_controller = ParametersController(self)
         self.input_controller = InputController(self)
         self.graph_controller = GraphController(self)
         self.radio_controller = RadioController(self)
@@ -67,7 +67,7 @@ class RhythmTranscriptionApp(tk.Tk):
         # self.transcription_controller = TranscriptionController()
 
         # Views
-        self.parameters_view = ParametersView(self, self.parameters_model)
+        self.parameters_view = ParametersView(self, self.parameters_model, self.parameters_controller)
         self.input_view = InputView(self, self.input_model, self.input_controller)
         self.graph_view = GraphView(self)
         self.radio_view = RadioView(self, self.radio_controller)
@@ -132,6 +132,9 @@ class ParametersModel:
     res_candidate_from = 0.001
     res_candidate_to = 0.1
 
+    frame_length_from = 0.1
+    frame_length_to = 5.
+
     def __init__(self):
         # Parameters
         self.threshold: float = default_parameters['threshold']
@@ -148,6 +151,37 @@ class ParametersModel:
                                      'res_cand': self.resolution_candidate
                                      }
 
+        self.frame_length_current_value = tk.StringVar()
+
+
+# Controller
+class ParametersController:
+    def __init__(self, app: RhythmTranscriptionApp):
+        self.app: RhythmTranscriptionApp = app
+
+    def update_frame_length_value(self, value):
+        # Update frame length
+        self.app.parameters_model.frame_length_current_value.set('%.2f' % float(value))
+        self.app.parameters_model.frame_length = float(value)
+
+        try:
+            self.app.input_controller.update_current_frame()
+            self.app.input_controller.update_piano_roll_view()
+        except TypeError:
+            pass
+
+        # Trigger update graph
+        try:
+            self.app.graph_controller.update_graph()
+        except TypeError:
+            pass
+
+        # Trigger update graph
+        try:
+            self.app.grid_controller.update_grid()
+        except AttributeError:
+            pass
+
 
 # View
 class ParametersView(tk.Frame):
@@ -155,7 +189,7 @@ class ParametersView(tk.Frame):
     pad_x = 10
     pad_y = 5
 
-    def __init__(self, app: tk.Tk, parameters_model: ParametersModel):
+    def __init__(self, app: tk.Tk, parameters_model: ParametersModel, parameters_controller: ParametersController):
         super().__init__(master=app, relief='raised', borderwidth=5)
 
         # Threshold widgets
@@ -202,14 +236,29 @@ class ParametersView(tk.Frame):
         self.res_candidate_spinbox.set(parameters_model.resolution_candidate)
         self.res_candidate_spinbox.grid(row=3, column=1, padx=self.pad_x, pady=self.pad_y)
 
+        # Frame length widgets
+        self.frame_length_label: tk.Label = tk.Label(master=self, text='Frame length')
+        self.frame_length_label.grid(row=4, column=0, padx=self.pad_x, pady=self.pad_y)
+
+        self.slider_frame: tk.Frame = tk.Frame(master=self)
+
+        self.frame_value_label: tk.Label = tk.Label(master=self.slider_frame,
+                                                    textvariable=parameters_model.frame_length_current_value)
+        self.frame_length_slider: ttk.Scale = ttk.Scale(master=self.slider_frame,
+                                                        from_=ParametersModel.frame_length_from,
+                                                        to=ParametersModel.frame_length_to,
+                                                        orient=tk.HORIZONTAL,
+                                                        command=parameters_controller.update_frame_length_value,
+                                                        variable=parameters_model.frame_length_current_value)
+        self.frame_length_slider.set(parameters_model.frame_length)
+
+        self.frame_value_label.grid(row=0, column=0, padx=self.pad_x, pady=0)
+        self.frame_length_slider.grid(row=0, column=1, padx=self.pad_x, pady=0)
+
+        self.slider_frame.grid(row=4, column=1, padx=self.pad_x, pady=self.pad_y)
+
         # Layout
         self.grid(row=0, column=2, padx=self.pad_x, pady=self.pad_y, sticky=tk.N)
-
-
-# Controller
-class ParametersController:
-    def __init__(self):
-        pass
 
 
 ## Input ##
@@ -435,6 +484,8 @@ class GraphView(tk.Frame):
 
     color = 0.9
 
+    node_size = 800
+
     def __init__(self, app: RhythmTranscriptionApp):
         super().__init__(master=app)
         self.master: RhythmTranscriptionApp = app
@@ -476,8 +527,9 @@ class GraphView(tk.Frame):
         self.ax.axis('off')
 
         # Plot graph
-        self.nodes = nx.draw_networkx_nodes(graph, pos=self.pos, ax=self.ax, node_size=800, node_color=self.color_nodes)
-        self.edges = nx.draw_networkx_edges(graph, pos=self.pos, ax=self.ax, arrows=True)
+        self.nodes = nx.draw_networkx_nodes(graph, pos=self.pos, ax=self.ax, node_size=GraphView.node_size,
+                                            node_color=self.color_nodes)
+        self.edges = nx.draw_networkx_edges(graph, pos=self.pos, ax=self.ax, arrows=True, node_size=GraphView.node_size)
         self.labels = nx.draw_networkx_labels(graph, pos=self.pos, ax=self.ax, labels=self.node_labels, font_size=12)
 
         # Draw
@@ -813,7 +865,7 @@ if __name__ == "__main__":
     rhythm_app = RhythmTranscriptionApp()
 
     # Choose a default MIDI input
-    default_path = Path('.') / Path('..') / Path('midi') / 'chopin_1.mid'
+    default_path = Path('.') / Path('..') / Path('midi') / 'mozart_1.mid'
     rhythm_app.update_file_change(default_path)
 
     # Main loop
